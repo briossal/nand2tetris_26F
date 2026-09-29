@@ -8,4 +8,45 @@
 // i.e. writes "black" in every pixel. When no key is pressed, 
 // the screen should be cleared.
 
-//// Replace this comment with your code.
+(START)
+@SCREEN
+D=A
+@R2
+M=D
+
+(KEYLOOP)
+@KBD
+D=M
+@FILLBLACK
+D;JNE
+@FILLWHITE
+0;JMP
+
+(FILLBLACK)
+@R3
+M=-1
+@DRAW
+0;JMP
+
+(FILLWHITE)
+@R3
+M=0
+
+(DRAW)
+@R3
+D=M
+@R2
+A=M
+M=D
+
+@R2
+M=M+1
+D=M
+
+@KBD
+D=A-D
+@DRAW
+D;JGT
+
+@START
+0;JMP
