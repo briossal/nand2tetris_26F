@@ -32,5 +32,88 @@ CHIP CPU {
         pc[15];          // address of next instruction
 
     PARTS:
-	//// Replace this comment with your code.
+	/** Determine instruction type **/
+    Not(in=instruction[15], out=isA);
+    And(a=instruction[15], b=true, out=isC);
+
+
+    /** Determine whether A register should load **/
+    //A register always loads for an A-instruction.
+    //For a C-instruction, A loads only when destination bit d1 is 1.
+    And(a=isC, b=instruction[5], out=cWritesA);
+    Or(a=isA, b=cWritesA, out=loadA);
+
+
+    /** Determine whether D register should load **/
+    //D only loads during a C-instruction when destination bit d2 is 1.
+    And(a=isC, b=instruction[4], out=loadD);
+
+
+    /** Determine whether memory should be written **/
+    //Memory only receives the ALU output when destination bit d3 is 1.
+    And(a=isC, b=instruction[3], out=writeM);
+
+
+    /** A register input selection **/
+    //For an A-instruction, load the instruction value.
+    //For a C-instruction writing to A, load the ALU result.
+    Mux16(a=instruction, b=aluOut, sel=isC, out=aInput);
+
+
+    /** A register **/
+    //The A register also provides addressM.
+    ARegister(in=aInput, load=loadA, out=aOut, out[0..14]=addressM);
+
+
+    /** Select ALU Y input **/
+    //instruction[12] is the a-bit.
+    //a=0 means use the A register.
+    //a=1 means use memory input inM.
+    Mux16(a=aOut, b=inM, sel=instruction[12], out=aluY);
+
+
+    /** D register **/
+    //The D register receives the ALU output when loadD is active.
+    DRegister(in=aluOut, load=loadD, out=dOut);
+
+
+    /** ALU **/
+    //The D register always provides the x-input.
+    //The y-input comes from either A or M.
+    //instruction[11..6] control the ALU operation.
+    ALU(x=dOut, y=aluY, zx=instruction[11], nx=instruction[10], zy=instruction[9], ny=instruction[8], f=instruction[7], no=instruction[6], out=aluOut, out=outM, zr=zeroFlag, ng=negativeFlag);
+
+
+    /** Determine whether ALU result is positive **/
+    //A value is positive if it is not zero and not negative.
+    Not(in=zeroFlag, out=notZero);
+    Not(in=negativeFlag, out=notNegative);
+    And(a=notZero, b=notNegative, out=positiveFlag);
+
+
+    /** Jump decoding **/
+    //instruction[2] corresponds to negative results.
+    //instruction[1] corresponds to zero results.
+    //instruction[0] corresponds to positive results.
+    And(a=instruction[2], b=negativeFlag, out=jumpNegative);
+    And(a=instruction[1], b=zeroFlag, out=jumpZero);
+    And(a=instruction[0], b=positiveFlag, out=jumpPositive);
+
+
+    /** Combine jump conditions **/
+    //Combine all three possible ALU conditions.
+    Or(a=jumpNegative, b=jumpZero, out=jumpNegOrZero);
+    Or(a=jumpNegOrZero, b=jumpPositive, out=jumpRequested);
+
+
+    /** Only allow jumps during C-instructions **/
+    And(a=isC, b=jumpRequested, out=doJump);
+
+
+    /** Program Counter behavior **/
+    //If a jump occurs, load the A register into PC.
+    //Otherwise, increment the PC.
+    //If reset is active, PC resets to zero.
+    Not(in=doJump, out=incrementPC);
+    PC(in=aOut, load=doJump, inc=incrementPC, reset=reset, out[0..14]=pc);
 }

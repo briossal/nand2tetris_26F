@@ -25,5 +25,12 @@ CHIP Memory {
     OUT out[16];
 
     PARTS:
-	//// Replace this comment with your code.
+    DMux4Way(in=load, sel=address[13..14], a=loadram1, b=loadram2, c=loadscreen, d=loadkbd); //demux selects between ram, screen, kbd
+    Or(a=loadram1, b=loadram2, out=loadram); // combines ram select lines
+    
+    RAM16K(in=in, load=loadram, address=address[0..13], out=outram);
+    Screen(in=in, load=loadscreen, address=address[0..12], out=outscreen)
+    Keyboard(out=outkbd);
+    
+    Mux4Way16(a=outram, b=outram, c=outscreen, d=outkbd, sel=address[13..14], out=out); // Select the correct output data based on the address bits
 }
